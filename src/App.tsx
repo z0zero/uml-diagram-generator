@@ -7,7 +7,7 @@ import { ApiKeyDialog } from './components/ApiKeyDialog';
 import { useDiagramStore, initializeStore } from './store/diagramStore';
 import { generateUML, ApiKeyNotConfiguredError } from './services/aiService';
 import { getApiKey } from './services/apiKeyService';
-import type { Message } from './types';
+import type { Message, DiagramType } from './types';
 
 /**
  * Generates a unique ID for messages
@@ -18,18 +18,15 @@ function generateMessageId(): string {
 
 /**
  * Main App component with three-panel layout.
- * Integrates Sidebar, Canvas, and PromptPanel components.
- * 
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
  */
 function App() {
-  // API Key dialog state
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
 
   // Get state from Zustand store
   const projects = useDiagramStore((state) => state.projects);
   const currentProjectId = useDiagramStore((state) => state.currentProjectId);
+  const currentDiagramType = useDiagramStore((state) => state.currentDiagramType);
   const messages = useDiagramStore((state) => state.messages);
   const isLoading = useDiagramStore((state) => state.isLoading);
 
@@ -40,26 +37,22 @@ function App() {
   const deleteProject = useDiagramStore((state) => state.deleteProject);
   const addMessage = useDiagramStore((state) => state.addMessage);
   const setLoading = useDiagramStore((state) => state.setLoading);
+  const setDiagramType = useDiagramStore((state) => state.setDiagramType);
   const updateDiagramFromUML = useDiagramStore((state) => state.updateDiagramFromUML);
   const updateProjectName = useDiagramStore((state) => state.updateProjectName);
 
-  // Initialize store on mount (load projects from localStorage)
-  // Check for API key and show dialog if missing
+  // Initialize store on mount
   useEffect(() => {
     initializeStore();
 
     const apiKey = getApiKey();
     setHasApiKey(!!apiKey);
 
-    // Show dialog if no API key is configured
     if (!apiKey) {
       setIsApiKeyDialogOpen(true);
     }
   }, []);
 
-  /**
-   * Generates a project name from the prompt (first 30 chars, cleaned up)
-   */
   const generateProjectName = useCallback((prompt: string): string => {
     const cleaned = prompt.trim().replace(/\s+/g, ' ');
     if (cleaned.length <= 30) {
@@ -68,32 +61,26 @@ function App() {
     return cleaned.substring(0, 30).trim() + '...';
   }, []);
 
-  /**
-   * Handles API key save
-   */
   const handleApiKeySave = useCallback(() => {
     setHasApiKey(true);
   }, []);
 
-  /**
-   * Handles prompt submission from PromptPanel.
-   * Sends prompt to AI service and updates diagram with response.
-   */
+  const handleDiagramTypeChange = useCallback((type: DiagramType) => {
+    setDiagramType(type);
+  }, [setDiagramType]);
+
   const handlePromptSubmit = useCallback(async (prompt: string) => {
-    // Check for API key first
     const apiKey = getApiKey();
     if (!apiKey) {
       setIsApiKeyDialogOpen(true);
       return;
     }
 
-    // If this is the first message and project is "Untitled Project", rename it
     const currentProject = projects.find(p => p.id === currentProjectId);
     if (messages.length === 0 && currentProject?.name === 'Untitled Project') {
       updateProjectName(generateProjectName(prompt));
     }
 
-    // Add user message to conversation
     const userMessage: Message = {
       id: generateMessageId(),
       role: 'user',
@@ -102,26 +89,45 @@ function App() {
     };
     addMessage(userMessage);
 
-    // Set loading state
     setLoading(true);
 
     try {
-      // Generate UML from prompt
-      const umlDiagram = await generateUML(prompt);
+      // Pass the current diagram type to generateUML
+      const umlDiagram = await generateUML(prompt, currentDiagramType);
 
-      // Update diagram with AI response
       updateDiagramFromUML(umlDiagram);
 
-      // Add assistant message to conversation
+      // Build a descriptive message based on diagram type
+      let description = '';
+      switch (umlDiagram.type) {
+        case 'class':
+          description = `${umlDiagram.classes?.length || 0} classes and ${umlDiagram.relationships?.length || 0} relationships`;
+          break;
+        case 'useCase':
+          description = `${umlDiagram.actors?.length || 0} actors and ${umlDiagram.useCases?.length || 0} use cases`;
+          break;
+        case 'activity':
+          description = `${umlDiagram.activities?.length || 0} activities`;
+          break;
+        case 'sequence':
+          description = `${umlDiagram.participants?.length || 0} participants and ${umlDiagram.messages?.length || 0} messages`;
+          break;
+        case 'stateMachine':
+          description = `${umlDiagram.states?.length || 0} states`;
+          break;
+        case 'component':
+          description = `${umlDiagram.components?.length || 0} components`;
+          break;
+      }
+
       const assistantMessage: Message = {
         id: generateMessageId(),
         role: 'assistant',
-        content: `Generated UML diagram with ${umlDiagram.classes.length} classes and ${umlDiagram.relationships.length} relationships.`,
+        content: `Generated ${umlDiagram.type} diagram with ${description}.`,
         timestamp: new Date(),
       };
       addMessage(assistantMessage);
     } catch (error) {
-      // Handle API key errors specifically
       if (error instanceof ApiKeyNotConfiguredError) {
         setIsApiKeyDialogOpen(true);
         setHasApiKey(false);
@@ -134,7 +140,6 @@ function App() {
         };
         addMessage(errorMessage);
       } else {
-        // Add error message to conversation
         const errorMessage: Message = {
           id: generateMessageId(),
           role: 'assistant',
@@ -148,7 +153,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [addMessage, setLoading, updateDiagramFromUML, messages.length, currentProjectId, projects, updateProjectName, generateProjectName]);
+  }, [addMessage, setLoading, updateDiagramFromUML, messages.length, currentProjectId, projects, updateProjectName, generateProjectName, currentDiagramType]);
 
   return (
     <ReactFlowProvider>
@@ -162,24 +167,24 @@ function App() {
           <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px]" />
         </div>
 
-        {/* Sidebar - Left Panel (Requirement 1.1) */}
+        {/* Sidebar */}
         <div className="z-10 h-full">
           <Sidebar
             projects={projects}
             currentProjectId={currentProjectId}
-            onCreateNew={createProject}
+            onCreateNew={() => createProject(currentDiagramType)}
             onSave={saveProject}
             onLoadProject={loadProject}
             onDeleteProject={deleteProject}
           />
         </div>
 
-        {/* Canvas - Center Panel (Requirement 1.2) */}
+        {/* Canvas */}
         <main className="flex-1 h-full min-w-0 z-0 relative">
           <Canvas />
         </main>
 
-        {/* PromptPanel - Right Panel (Requirement 1.3) */}
+        {/* PromptPanel */}
         <div className="z-10 h-full">
           <PromptPanel
             messages={messages}
@@ -187,6 +192,8 @@ function App() {
             onSubmit={handlePromptSubmit}
             hasApiKey={hasApiKey}
             onSettingsClick={() => setIsApiKeyDialogOpen(true)}
+            currentDiagramType={currentDiagramType}
+            onDiagramTypeChange={handleDiagramTypeChange}
           />
         </div>
 

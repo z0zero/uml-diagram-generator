@@ -16,9 +16,25 @@ import { useDiagramStore } from '../../store/diagramStore';
 import { ClassNode } from './ClassNode';
 import { RelationshipEdge, RelationshipMarkerDefs } from './RelationshipEdge';
 import { ExportPanel } from './ExportPanel';
+import {
+  ActorNode,
+  UseCaseNode,
+  ActivityNode,
+  ParticipantNode,
+  StateNode,
+  ComponentNode,
+} from './nodes';
+import type { DiagramNode, DiagramEdge } from '../../types';
 
+// Register all node types
 const nodeTypes = {
   classNode: ClassNode,
+  actorNode: ActorNode,
+  useCaseNode: UseCaseNode,
+  activityNode: ActivityNode,
+  participantNode: ParticipantNode,
+  stateNode: StateNode,
+  componentNode: ComponentNode,
 };
 
 const edgeTypes = {
@@ -27,7 +43,7 @@ const edgeTypes = {
 
 /**
  * Canvas component for rendering UML diagrams using React Flow.
- * Redesigned with Dark Mode, Minimap, and Custom Controls.
+ * Supports multiple diagram types with specialized node components.
  */
 export function Canvas() {
   const nodes = useDiagramStore((state) => state.nodes);
@@ -38,7 +54,7 @@ export function Canvas() {
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       const updatedNodes = applyNodeChanges(changes, nodes);
-      setNodes(updatedNodes as typeof nodes);
+      setNodes(updatedNodes as DiagramNode[]);
     },
     [nodes, setNodes]
   );
@@ -46,15 +62,15 @@ export function Canvas() {
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       const updatedEdges = applyEdgeChanges(changes, edges);
-      setEdges(updatedEdges as typeof edges);
+      setEdges(updatedEdges as DiagramEdge[]);
     },
     [edges, setEdges]
   );
 
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: 'relationshipEdge',
-      animated: true,
+      type: 'default',
+      animated: false,
     }),
     []
   );

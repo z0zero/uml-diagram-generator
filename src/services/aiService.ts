@@ -1,21 +1,19 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-import type { UMLDiagram } from '../types';
+import type { UnifiedDiagram, DiagramType } from '../types';
 import { getApiKey } from './apiKeyService';
-import { validateUML } from './umlParser';
+import { validateUnifiedDiagram } from './diagramParser';
 
 /**
  * AI Service Interface
- * Provides a function interface for UML diagram generation
  */
 export interface AIService {
-  generateUML: (prompt: string) => Promise<UMLDiagram>;
+  generateUML: (prompt: string, diagramType?: DiagramType) => Promise<UnifiedDiagram>;
 }
 
 /**
  * Configuration for the AI service
  */
 export interface AIServiceConfig {
-  /** Override API key (uses stored key if not provided) */
   apiKey?: string;
 }
 
@@ -40,49 +38,145 @@ export class UMLGenerationError extends Error {
 }
 
 /**
- * System prompt for Gemini to generate UML class diagrams
+ * System prompts for each diagram type
  */
-const SYSTEM_PROMPT = `You are a UML class diagram generator. Your task is to analyze the user's description and generate a valid UML class diagram in JSON format.
+const SYSTEM_PROMPTS: Record<DiagramType, string> = {
+  class: `You are a UML class diagram generator. Generate a valid Class Diagram in JSON format.
 
-IMPORTANT: You must respond ONLY with valid JSON, no explanation or markdown code blocks.
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
 
-The JSON must follow this exact schema:
+JSON Schema:
 {
+  "type": "class",
   "classes": [
-    {
-      "id": "unique_lowercase_id",
-      "name": "ClassName",
-      "attributes": ["- privateAttr: type", "+ publicAttr: type", "# protectedAttr: type"],
-      "operations": ["+ methodName(): returnType", "- privateMethod(param: type)"]
-    }
+    { "id": "unique_id", "name": "ClassName", "attributes": ["- privateAttr: type", "+ publicAttr: type"], "operations": ["+ method(): returnType"] }
   ],
   "relationships": [
-    {
-      "source": "source_class_id",
-      "target": "target_class_id", 
-      "type": "association|inheritance|composition|aggregation",
-      "label": "optional relationship label"
-    }
+    { "source": "source_id", "target": "target_id", "type": "association|inheritance|composition|aggregation", "label": "optional" }
   ]
 }
 
 Rules:
-1. Class IDs must be lowercase, unique, and match the source/target in relationships
-2. Use proper UML visibility markers: + (public), - (private), # (protected)
-3. Include relevant attributes and operations for each class
-4. Use appropriate relationship types:
-   - inheritance: for "is-a" relationships (child extends parent)
-   - composition: for strong "has-a" (part cannot exist without whole)
-   - aggregation: for weak "has-a" (part can exist independently)
-   - association: for general relationships
-5. Generate 3-8 classes with meaningful relationships
-6. Make the diagram represent a complete, coherent system design`;
+- Class IDs must be lowercase and unique
+- Use visibility markers: + (public), - (private), # (protected)
+- Relationship types: inheritance, composition, aggregation, association
+- Generate 3-8 meaningful classes with relationships`,
+
+  useCase: `You are a UML use case diagram generator. Generate a valid Use Case Diagram in JSON format.
+
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+JSON Schema:
+{
+  "type": "useCase",
+  "actors": [
+    { "id": "unique_id", "name": "Actor Name" }
+  ],
+  "useCases": [
+    { "id": "unique_id", "name": "Use Case Name", "description": "optional description" }
+  ],
+  "useCaseRelationships": [
+    { "source": "actor_or_usecase_id", "target": "usecase_id", "type": "association|include|extend|generalization", "label": "optional" }
+  ]
+}
+
+Rules:
+- Actors are external entities that interact with the system
+- Use cases represent system functionality
+- Types: association (actor-usecase), include (<<include>>), extend (<<extend>>), generalization
+- Generate realistic actors and 4-8 use cases`,
+
+  activity: `You are a UML activity diagram generator. Generate a valid Activity Diagram in JSON format.
+
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+JSON Schema:
+{
+  "type": "activity",
+  "activities": [
+    { "id": "unique_id", "type": "initial|action|decision|merge|fork|join|final|flowFinal", "label": "Activity Label" }
+  ],
+  "transitions": [
+    { "source": "source_id", "target": "target_id", "guard": "[condition]", "label": "optional" }
+  ]
+}
+
+Rules:
+- Must have exactly one "initial" node and at least one "final" or "flowFinal" node
+- decision nodes should have multiple outgoing transitions with guards
+- fork/join are for parallel activities
+- Generate a logical flow with 5-10 activities`,
+
+  sequence: `You are a UML sequence diagram generator. Generate a valid Sequence Diagram in JSON format.
+
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+JSON Schema:
+{
+  "type": "sequence",
+  "participants": [
+    { "id": "unique_id", "name": "Participant Name", "type": "actor|object|boundary|control|entity" }
+  ],
+  "messages": [
+    { "id": "msg_id", "from": "participant_id", "to": "participant_id", "label": "message()", "type": "sync|async|return|create|destroy", "order": 1 }
+  ]
+}
+
+Rules:
+- Participants are ordered left to right
+- Messages have sequential order numbers
+- Types: actor (user), object (class), boundary (UI), control (logic), entity (data)
+- Message types: sync (->), async (-->), return (<--), create, destroy
+- Generate 3-6 participants with 5-10 messages`,
+
+  stateMachine: `You are a UML state machine diagram generator. Generate a valid State Machine Diagram in JSON format.
+
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+JSON Schema:
+{
+  "type": "stateMachine",
+  "states": [
+    { "id": "unique_id", "name": "State Name", "isInitial": false, "isFinal": false, "entryAction": "optional", "exitAction": "optional" }
+  ],
+  "stateTransitions": [
+    { "source": "state_id", "target": "state_id", "trigger": "event", "guard": "[condition]", "action": "doSomething()" }
+  ]
+}
+
+Rules:
+- Must have exactly one state with isInitial: true
+- Can have multiple final states with isFinal: true
+- Transitions have trigger (event), guard (condition), action
+- Generate 4-8 states with meaningful transitions`,
+
+  component: `You are a UML component diagram generator. Generate a valid Component Diagram in JSON format.
+
+IMPORTANT: Respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+JSON Schema:
+{
+  "type": "component",
+  "components": [
+    { "id": "unique_id", "name": "Component Name", "stereotype": "service|library|database|ui", "interfaces": [{ "id": "iface_id", "name": "IInterface", "type": "provided|required" }] }
+  ],
+  "dependencies": [
+    { "source": "component_id", "target": "component_id", "label": "uses", "type": "dependency|realization" }
+  ]
+}
+
+Rules:
+- Components represent modular parts of a system
+- Provided interfaces are implemented by the component (lollipop)
+- Required interfaces are needed by the component (socket)
+- Dependencies show usage relationships
+- Generate 4-8 components representing a realistic architecture`,
+};
 
 /**
  * Parses the Gemini response to extract valid JSON
  */
-function parseGeminiResponse(text: string): UMLDiagram {
-  // Try to extract JSON from the response
+function parseGeminiResponse(text: string, diagramType: DiagramType): UnifiedDiagram {
   let jsonText = text.trim();
 
   // Remove markdown code blocks if present
@@ -91,7 +185,7 @@ function parseGeminiResponse(text: string): UMLDiagram {
     jsonText = jsonMatch[1].trim();
   }
 
-  // Try to find JSON object boundaries
+  // Find JSON object boundaries
   const startIdx = jsonText.indexOf('{');
   const endIdx = jsonText.lastIndexOf('}');
 
@@ -102,21 +196,15 @@ function parseGeminiResponse(text: string): UMLDiagram {
   jsonText = jsonText.slice(startIdx, endIdx + 1);
 
   try {
-    const parsed = JSON.parse(jsonText) as UMLDiagram;
+    const parsed = JSON.parse(jsonText) as UnifiedDiagram;
 
-    // Validate the parsed object has required structure
-    if (!Array.isArray(parsed.classes)) {
-      throw new Error('Missing or invalid "classes" array');
-    }
-    if (!Array.isArray(parsed.relationships)) {
-      throw new Error('Missing or invalid "relationships" array');
-    }
+    // Ensure type is set correctly
+    parsed.type = diagramType;
 
-    // Run through the UML validator
-    const validation = validateUML(parsed);
+    // Validate the parsed object
+    const validation = validateUnifiedDiagram(parsed);
     if (!validation.valid) {
       console.warn('UML validation warnings:', validation.errors);
-      // Don't throw - try to use the diagram anyway
     }
 
     return parsed;
@@ -130,18 +218,12 @@ function parseGeminiResponse(text: string): UMLDiagram {
 
 /**
  * Generates a UML diagram from a natural language prompt using Gemini AI
- * 
- * @param prompt - Natural language description of the system
- * @param config - Optional configuration (API key override)
- * @returns Promise resolving to a UMLDiagram
- * @throws ApiKeyNotConfiguredError if no API key is available
- * @throws UMLGenerationError if generation fails
  */
 export async function generateUML(
   prompt: string,
+  diagramType: DiagramType = 'class',
   config?: AIServiceConfig
-): Promise<UMLDiagram> {
-  // Get API key
+): Promise<UnifiedDiagram> {
   const apiKey = config?.apiKey ?? getApiKey();
 
   if (!apiKey) {
@@ -149,10 +231,9 @@ export async function generateUML(
   }
 
   try {
-    // Initialize Gemini client
     const ai = new GoogleGenAI({ apiKey });
+    const systemPrompt = SYSTEM_PROMPTS[diagramType];
 
-    // Generate content with streaming
     const response = await ai.models.generateContentStream({
       model: 'gemini-3-flash-preview',
       contents: [
@@ -160,7 +241,7 @@ export async function generateUML(
           role: 'user',
           parts: [
             {
-              text: `${SYSTEM_PROMPT}\n\nUser Request: ${prompt}`,
+              text: `${systemPrompt}\n\nUser Request: ${prompt}`,
             },
           ],
         },
@@ -174,7 +255,6 @@ export async function generateUML(
       },
     });
 
-    // Collect the full response
     let fullText = '';
     for await (const chunk of response) {
       if (chunk.text) {
@@ -186,37 +266,23 @@ export async function generateUML(
       throw new Error('Empty response from Gemini API');
     }
 
-    // Parse and validate the response
-    return parseGeminiResponse(fullText);
+    return parseGeminiResponse(fullText, diagramType);
 
   } catch (error) {
-    // Re-throw our custom errors
     if (error instanceof ApiKeyNotConfiguredError) {
       throw error;
     }
 
-    // Handle specific API errors
     if (error instanceof Error) {
-      // Check for authentication errors
       if (error.message.includes('API key') || error.message.includes('401')) {
-        throw new UMLGenerationError(
-          'Invalid API key. Please check your Gemini API key in settings.',
-          error
-        );
+        throw new UMLGenerationError('Invalid API key. Please check your Gemini API key.', error);
       }
 
-      // Check for rate limiting
       if (error.message.includes('429') || error.message.includes('quota')) {
-        throw new UMLGenerationError(
-          'API rate limit exceeded. Please wait a moment and try again.',
-          error
-        );
+        throw new UMLGenerationError('API rate limit exceeded. Please wait and try again.', error);
       }
 
-      throw new UMLGenerationError(
-        `Failed to generate UML diagram: ${error.message}`,
-        error
-      );
+      throw new UMLGenerationError(`Failed to generate diagram: ${error.message}`, error);
     }
 
     throw new UMLGenerationError('An unexpected error occurred', error);

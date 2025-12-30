@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Send, Loader2, Sparkles, ChevronDown, Settings, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, Sparkles, ChevronDown, Settings, AlertTriangle, LayoutGrid } from 'lucide-react';
 import { MessageList } from './MessageList';
-import type { Message } from '../../types';
+import type { Message, DiagramType } from '../../types';
+import { DIAGRAM_TYPE_LABELS } from '../../types';
 
 interface PromptPanelProps {
   messages: Message[];
@@ -9,25 +10,71 @@ interface PromptPanelProps {
   onSubmit: (prompt: string) => void;
   hasApiKey?: boolean;
   onSettingsClick?: () => void;
+  currentDiagramType: DiagramType;
+  onDiagramTypeChange: (type: DiagramType) => void;
 }
 
-/**
- * Example prompts to help users get started
- */
-const examplePrompts = [
-  'Design an e-commerce system with users, products, orders, and shopping cart',
-  'Create a library management system with books, members, and loans',
-  'Model a hospital system with patients, doctors, and appointments',
-  'Design a school system with students, teachers, and courses',
+const DIAGRAM_TYPES: DiagramType[] = [
+  'class',
+  'useCase',
+  'activity',
+  'sequence',
+  'stateMachine',
+  'component',
 ];
+
+/**
+ * Example prompts for each diagram type
+ */
+const examplePromptsByType: Record<DiagramType, string[]> = {
+  class: [
+    'Design an e-commerce system with users, products, orders, and shopping cart',
+    'Create a library management system with books, members, and loans',
+    'Model a hospital system with patients, doctors, and appointments',
+  ],
+  useCase: [
+    'Create a use case diagram for an ATM banking system',
+    'Design use cases for an online shopping website',
+    'Model user interactions for a social media platform',
+  ],
+  activity: [
+    'Model the checkout process for an online store',
+    'Design the workflow for processing a loan application',
+    'Create an activity diagram for user registration and verification',
+  ],
+  sequence: [
+    'Show the login sequence between user, frontend, and backend',
+    'Model the payment processing flow with payment gateway',
+    'Design the sequence for placing an order in e-commerce',
+  ],
+  stateMachine: [
+    'Model the lifecycle states of an order (new, processing, shipped, delivered)',
+    'Design state machine for a document approval workflow',
+    'Create states for a user account (active, suspended, closed)',
+  ],
+  component: [
+    'Design a microservices architecture for an e-commerce platform',
+    'Model the components of a web application with frontend, backend, and database',
+    'Create a component diagram for a mobile app with API gateway',
+  ],
+};
 
 /**
  * PromptPanel component provides a chat interface for user prompts.
  * Redesigned with glassmorphism and modern inputs.
  */
-export function PromptPanel({ messages, isLoading, onSubmit, hasApiKey = true, onSettingsClick }: PromptPanelProps) {
+export function PromptPanel({
+  messages,
+  isLoading,
+  onSubmit,
+  hasApiKey = true,
+  onSettingsClick,
+  currentDiagramType,
+  onDiagramTypeChange,
+}: PromptPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [showExamples, setShowExamples] = useState(false);
+  const [showDiagramTypes, setShowDiagramTypes] = useState(false);
 
   const handleSubmit = useCallback(() => {
     const trimmedValue = inputValue.trim();
@@ -52,6 +99,13 @@ export function PromptPanel({ messages, isLoading, onSubmit, hasApiKey = true, o
     setInputValue(example);
     setShowExamples(false);
   }, []);
+
+  const handleDiagramTypeSelect = useCallback((type: DiagramType) => {
+    onDiagramTypeChange(type);
+    setShowDiagramTypes(false);
+  }, [onDiagramTypeChange]);
+
+  const examplePrompts = examplePromptsByType[currentDiagramType];
 
   return (
     <aside
@@ -92,6 +146,39 @@ export function PromptPanel({ messages, isLoading, onSubmit, hasApiKey = true, o
           </div>
         </div>
       )}
+
+      {/* Diagram Type Selector */}
+      <div className="mx-3 mt-3 relative">
+        <button
+          onClick={() => setShowDiagramTypes(!showDiagramTypes)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-sm text-slate-200 hover:bg-slate-700/50 transition-colors"
+          data-testid="diagram-type-selector"
+        >
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4 text-indigo-400" />
+            <span>{DIAGRAM_TYPE_LABELS[currentDiagramType]}</span>
+          </div>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showDiagramTypes ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showDiagramTypes && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-lg shadow-2xl overflow-hidden z-50">
+            {DIAGRAM_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => handleDiagramTypeSelect(type)}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${type === currentDiagramType
+                    ? 'bg-indigo-500/20 text-indigo-300'
+                    : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  }`}
+                data-testid={`diagram-type-${type}`}
+              >
+                {DIAGRAM_TYPE_LABELS[type]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Message List - scrollable area that takes remaining space */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -137,7 +224,7 @@ export function PromptPanel({ messages, isLoading, onSubmit, hasApiKey = true, o
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe the system structure..."
+            placeholder={`Describe your ${DIAGRAM_TYPE_LABELS[currentDiagramType].toLowerCase()}...`}
             disabled={isLoading}
             className="w-full h-16 px-3 py-2 pr-10 text-xs bg-slate-950/50 text-slate-200 border border-slate-700/50 rounded-lg resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600 disabled:opacity-50"
             data-testid="prompt-input"

@@ -3,10 +3,11 @@ import type {
   DiagramStore,
   Project,
   Message,
-  ClassNode,
-  RelationshipEdge,
-  UMLDiagram,
+  DiagramNode,
+  DiagramEdge,
+  UnifiedDiagram,
   StoredProject,
+  DiagramType,
 } from '../types';
 import {
   saveToStorage,
@@ -14,7 +15,7 @@ import {
   loadProjectById,
   deleteFromStorage,
 } from '../utils/storage';
-import { parseToReactFlow } from '../services/umlParser';
+import { parseUnifiedDiagram } from '../services/diagramParser';
 import { calculateLayout } from '../services/layoutEngine';
 
 /**
@@ -31,6 +32,7 @@ function storedProjectToProject(stored: StoredProject): Project {
   return {
     id: stored.id,
     name: stored.name,
+    diagramType: stored.diagramType || 'class',
     createdAt: new Date(stored.createdAt),
     updatedAt: new Date(stored.updatedAt),
   };
@@ -52,8 +54,9 @@ function parseStoredMessages(messages: Message[]): Message[] {
 const initialState = {
   projects: [] as Project[],
   currentProjectId: null as string | null,
-  nodes: [] as ClassNode[],
-  edges: [] as RelationshipEdge[],
+  currentDiagramType: 'class' as DiagramType,
+  nodes: [] as DiagramNode[],
+  edges: [] as DiagramEdge[],
   messages: [] as Message[],
   isLoading: false,
 };
@@ -66,10 +69,11 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
   ...initialState,
 
   // Project Actions
-  createProject: () => {
+  createProject: (diagramType: DiagramType = 'class') => {
     const newProject: Project = {
       id: generateId(),
       name: 'Untitled Project',
+      diagramType,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -77,6 +81,7 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     set((state) => ({
       projects: [...state.projects, newProject],
       currentProjectId: newProject.id,
+      currentDiagramType: diagramType,
       nodes: [],
       edges: [],
       messages: [],
@@ -86,7 +91,7 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
 
   saveProject: () => {
     const state = get();
-    const { currentProjectId, nodes, edges, messages, projects } = state;
+    const { currentProjectId, currentDiagramType, nodes, edges, messages, projects } = state;
 
     if (!currentProjectId) {
       return;
@@ -97,25 +102,13 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
       return;
     }
 
-    // Convert nodes and edges back to UML diagram format for storage
-    const diagram: UMLDiagram = {
-      classes: nodes.map((node) => ({
-        id: node.id,
-        name: node.data.name,
-        attributes: [...node.data.attributes],
-        operations: [...node.data.operations],
-      })),
-      relationships: edges.map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        type: edge.data?.type ?? 'association',
-        label: edge.data?.label,
-      })),
-    };
+    // Convert nodes and edges back to UnifiedDiagram for storage
+    const diagram = nodesToUnifiedDiagram(nodes, edges, currentDiagramType);
 
     const storedProject: StoredProject = {
       id: currentProjectId,
       name: currentProject.name,
+      diagramType: currentDiagramType,
       diagram,
       messages: messages.map((msg) => ({
         ...msg,
@@ -128,7 +121,6 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     const result = saveToStorage(storedProject);
 
     if (result.success) {
-      // Update the project's updatedAt in the local state
       set((state) => ({
         projects: state.projects.map((p) =>
           p.id === currentProjectId ? { ...p, updatedAt: new Date() } : p
@@ -145,11 +137,13 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     }
 
     const stored = result.data;
-    const { nodes, edges } = parseToReactFlow(stored.diagram);
+    const diagramType = stored.diagramType || 'class';
+    const { nodes, edges } = parseUnifiedDiagram(stored.diagram);
     const layoutedNodes = calculateLayout(nodes, edges);
 
     set({
       currentProjectId: stored.id,
+      currentDiagramType: diagramType,
       nodes: layoutedNodes,
       edges,
       messages: parseStoredMessages(stored.messages),
@@ -167,9 +161,9 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
 
         return {
           projects: newProjects,
-          // Clear state if deleting current project
           ...(isCurrentProject && {
             currentProjectId: null,
+            currentDiagramType: 'class' as DiagramType,
             nodes: [],
             edges: [],
             messages: [],
@@ -180,12 +174,16 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
   },
 
   // Diagram Actions
-  setNodes: (nodes: ClassNode[]) => {
+  setNodes: (nodes: DiagramNode[]) => {
     set({ nodes });
   },
 
-  setEdges: (edges: RelationshipEdge[]) => {
+  setEdges: (edges: DiagramEdge[]) => {
     set({ edges });
+  },
+
+  setDiagramType: (type: DiagramType) => {
+    set({ currentDiagramType: type });
   },
 
   // Conversation Actions
@@ -199,12 +197,13 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     set({ isLoading: loading });
   },
 
-  // UML Update Action
-  updateDiagramFromUML: (uml: UMLDiagram) => {
-    const { nodes, edges } = parseToReactFlow(uml);
+  // UML Update Action  
+  updateDiagramFromUML: (uml: UnifiedDiagram) => {
+    const { nodes, edges } = parseUnifiedDiagram(uml);
     const layoutedNodes = calculateLayout(nodes, edges);
 
     set({
+      currentDiagramType: uml.type,
       nodes: layoutedNodes,
       edges,
     });
@@ -226,6 +225,102 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     });
   },
 }));
+
+/**
+ * Convert nodes/edges back to UnifiedDiagram for storage
+ */
+function nodesToUnifiedDiagram(
+  nodes: DiagramNode[],
+  edges: DiagramEdge[],
+  diagramType: DiagramType
+): UnifiedDiagram {
+  const diagram: UnifiedDiagram = { type: diagramType };
+
+  switch (diagramType) {
+    case 'class':
+      diagram.classes = nodes
+        .filter((n) => n.type === 'classNode')
+        .map((node) => ({
+          id: node.id,
+          name: (node.data as { name: string }).name,
+          attributes: [...((node.data as { attributes: string[] }).attributes || [])],
+          operations: [...((node.data as { operations: string[] }).operations || [])],
+        }));
+      diagram.relationships = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        type: ((edge.data as { type?: string })?.type || 'association') as 'association' | 'inheritance' | 'composition' | 'aggregation',
+        label: (edge.data as { label?: string })?.label,
+      }));
+      break;
+
+    case 'useCase':
+      diagram.actors = nodes
+        .filter((n) => n.type === 'actorNode')
+        .map((node) => ({
+          id: node.id,
+          name: (node.data as { name: string }).name,
+        }));
+      diagram.useCases = nodes
+        .filter((n) => n.type === 'useCaseNode')
+        .map((node) => ({
+          id: node.id,
+          name: (node.data as { name: string }).name,
+        }));
+      break;
+
+    case 'activity':
+      diagram.activities = nodes.map((node) => ({
+        id: node.id,
+        type: (node.data as { nodeType: string }).nodeType as 'action' | 'decision' | 'merge' | 'fork' | 'join' | 'initial' | 'final' | 'flowFinal',
+        label: (node.data as { label: string }).label || '',
+      }));
+      diagram.transitions = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        guard: (edge.data as { label?: string })?.label,
+      }));
+      break;
+
+    case 'sequence':
+      diagram.participants = nodes.map((node) => ({
+        id: node.id,
+        name: (node.data as { name: string }).name,
+        type: (node.data as { participantType: string }).participantType as 'actor' | 'object' | 'boundary' | 'control' | 'entity',
+      }));
+      break;
+
+    case 'stateMachine':
+      diagram.states = nodes.map((node) => ({
+        id: node.id,
+        name: (node.data as { name: string }).name || '',
+        isInitial: (node.data as { isInitial?: boolean }).isInitial,
+        isFinal: (node.data as { isFinal?: boolean }).isFinal,
+      }));
+      diagram.stateTransitions = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        trigger: (edge.data as { label?: string })?.label,
+      }));
+      break;
+
+    case 'component':
+      diagram.components = nodes.map((node) => ({
+        id: node.id,
+        name: (node.data as { name: string }).name,
+        stereotype: (node.data as { stereotype?: string }).stereotype,
+      }));
+      diagram.dependencies = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        label: (edge.data as { label?: string })?.label,
+        type: ((edge.data as { edgeType?: string })?.edgeType || 'dependency') as 'dependency' | 'realization',
+      }));
+      break;
+  }
+
+  return diagram;
+}
 
 /**
  * Initialize the store by loading projects from localStorage
