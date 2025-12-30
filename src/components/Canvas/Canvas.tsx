@@ -15,6 +15,7 @@ import '@xyflow/react/dist/style.css';
 import { useDiagramStore } from '../../store/diagramStore';
 import { ClassNode } from './ClassNode';
 import { RelationshipEdge, RelationshipMarkerDefs } from './RelationshipEdge';
+import { ExportPanel } from './ExportPanel';
 
 const nodeTypes = {
   classNode: ClassNode,
@@ -60,6 +61,9 @@ export function Canvas() {
 
   return (
     <div className="flex-1 h-full relative overflow-hidden" data-testid="canvas-container">
+      {/* Export Button */}
+      <ExportPanel />
+
       {/* SVG marker definitions */}
       <RelationshipMarkerDefs />
 

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Send, Loader2, Sparkles, ChevronDown } from 'lucide-react';
+import { Send, Loader2, Sparkles, ChevronDown, Settings, AlertTriangle } from 'lucide-react';
 import { MessageList } from './MessageList';
 import type { Message } from '../../types';
 
@@ -7,6 +7,8 @@ interface PromptPanelProps {
   messages: Message[];
   isLoading: boolean;
   onSubmit: (prompt: string) => void;
+  hasApiKey?: boolean;
+  onSettingsClick?: () => void;
 }
 
 /**
@@ -23,7 +25,7 @@ const examplePrompts = [
  * PromptPanel component provides a chat interface for user prompts.
  * Redesigned with glassmorphism and modern inputs.
  */
-export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps) {
+export function PromptPanel({ messages, isLoading, onSubmit, hasApiKey = true, onSettingsClick }: PromptPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [showExamples, setShowExamples] = useState(false);
 
@@ -61,11 +63,35 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
         <div className="p-1.5 bg-indigo-500/20 rounded-lg">
           <Sparkles className="w-4 h-4 text-indigo-400" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-sm font-semibold text-slate-200">AI Assistant</h2>
           <p className="text-[10px] text-slate-500">Powered by Gemini</p>
         </div>
+        {onSettingsClick && (
+          <button
+            onClick={onSettingsClick}
+            className={`p-1.5 rounded-lg transition-colors ${hasApiKey
+                ? 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+              }`}
+            title={hasApiKey ? 'API Key Settings' : 'API Key Required'}
+            data-testid="settings-btn"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        )}
       </div>
+
+      {/* API Key Warning */}
+      {!hasApiKey && (
+        <div className="mx-3 mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-200">
+            <p className="font-medium">API Key Required</p>
+            <p className="text-amber-300/70 mt-0.5">Click the settings icon to add your Gemini API key.</p>
+          </div>
+        </div>
+      )}
 
       {/* Message List - scrollable area that takes remaining space */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -120,8 +146,8 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
             onClick={handleSubmit}
             disabled={isLoading || !inputValue.trim()}
             className={`absolute bottom-2 right-2 p-1.5 rounded-md transition-all ${isLoading || !inputValue.trim()
-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
+              ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+              : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
               }`}
             data-testid="submit-btn"
           >

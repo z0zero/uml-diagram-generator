@@ -1,488 +1,233 @@
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import type { UMLDiagram } from '../types';
+import { getApiKey } from './apiKeyService';
+import { validateUML } from './umlParser';
 
 /**
  * AI Service Interface
- * Provides a function interface that can be replaced with actual LLM API calls
+ * Provides a function interface for UML diagram generation
  */
 export interface AIService {
   generateUML: (prompt: string) => Promise<UMLDiagram>;
 }
 
 /**
- * Response templates for common prompts
- * Maps keywords to predefined UML diagram responses
- */
-const responseTemplates: Record<string, UMLDiagram> = {
-  // E-commerce / Shopping system
-  ecommerce: {
-    classes: [
-      {
-        id: 'user',
-        name: 'User',
-        attributes: ['- id: string', '- email: string', '- password: string', '+ name: string'],
-        operations: ['+ register()', '+ login()', '+ logout()']
-      },
-      {
-        id: 'product',
-        name: 'Product',
-        attributes: ['- id: string', '+ name: string', '+ price: number', '+ description: string'],
-        operations: ['+ getDetails()', '+ updateStock()']
-      },
-      {
-        id: 'order',
-        name: 'Order',
-        attributes: ['- id: string', '- userId: string', '+ total: number', '+ status: string'],
-        operations: ['+ create()', '+ cancel()', '+ getItems()']
-      },
-      {
-        id: 'cart',
-        name: 'ShoppingCart',
-        attributes: ['- id: string', '- items: CartItem[]'],
-        operations: ['+ addItem()', '+ removeItem()', '+ checkout()']
-      }
-    ],
-    relationships: [
-      { source: 'user', target: 'order', type: 'association', label: 'places' },
-      { source: 'user', target: 'cart', type: 'composition', label: 'has' },
-      { source: 'order', target: 'product', type: 'aggregation', label: 'contains' },
-      { source: 'cart', target: 'product', type: 'aggregation', label: 'contains' }
-    ]
-  },
-
-  // Library system
-  library: {
-    classes: [
-      {
-        id: 'book',
-        name: 'Book',
-        attributes: ['- isbn: string', '+ title: string', '+ author: string', '- available: boolean'],
-        operations: ['+ borrow()', '+ return()', '+ getInfo()']
-      },
-      {
-        id: 'member',
-        name: 'Member',
-        attributes: ['- id: string', '+ name: string', '+ email: string', '- borrowedBooks: Book[]'],
-        operations: ['+ register()', '+ borrowBook()', '+ returnBook()']
-      },
-      {
-        id: 'librarian',
-        name: 'Librarian',
-        attributes: ['- employeeId: string', '+ name: string'],
-        operations: ['+ addBook()', '+ removeBook()', '+ manageMember()']
-      },
-      {
-        id: 'loan',
-        name: 'Loan',
-        attributes: ['- id: string', '- dueDate: Date', '- returnDate: Date'],
-        operations: ['+ extend()', '+ calculateFine()']
-      }
-    ],
-    relationships: [
-      { source: 'member', target: 'loan', type: 'association', label: 'has' },
-      { source: 'loan', target: 'book', type: 'association', label: 'for' },
-      { source: 'librarian', target: 'member', type: 'inheritance' },
-      { source: 'librarian', target: 'book', type: 'association', label: 'manages' }
-    ]
-  },
-
-  // Vehicle / Car system
-  vehicle: {
-    classes: [
-      {
-        id: 'vehicle',
-        name: 'Vehicle',
-        attributes: ['# id: string', '# brand: string', '# model: string', '# year: number'],
-        operations: ['+ start()', '+ stop()', '+ getInfo()']
-      },
-      {
-        id: 'car',
-        name: 'Car',
-        attributes: ['- numDoors: number', '- fuelType: string'],
-        operations: ['+ openTrunk()', '+ refuel()']
-      },
-      {
-        id: 'motorcycle',
-        name: 'Motorcycle',
-        attributes: ['- hasSidecar: boolean'],
-        operations: ['+ wheelie()']
-      },
-      {
-        id: 'engine',
-        name: 'Engine',
-        attributes: ['- horsepower: number', '- displacement: number'],
-        operations: ['+ ignite()', '+ shutdown()']
-      }
-    ],
-    relationships: [
-      { source: 'car', target: 'vehicle', type: 'inheritance' },
-      { source: 'motorcycle', target: 'vehicle', type: 'inheritance' },
-      { source: 'vehicle', target: 'engine', type: 'composition', label: 'has' }
-    ]
-  },
-
-  // Blog / CMS system
-  blog: {
-    classes: [
-      {
-        id: 'user',
-        name: 'User',
-        attributes: ['- id: string', '+ username: string', '+ email: string', '- role: string'],
-        operations: ['+ login()', '+ logout()', '+ updateProfile()']
-      },
-      {
-        id: 'post',
-        name: 'Post',
-        attributes: ['- id: string', '+ title: string', '+ content: string', '+ publishedAt: Date', '- status: string'],
-        operations: ['+ publish()', '+ unpublish()', '+ edit()']
-      },
-      {
-        id: 'comment',
-        name: 'Comment',
-        attributes: ['- id: string', '+ content: string', '+ createdAt: Date'],
-        operations: ['+ edit()', '+ delete()']
-      },
-      {
-        id: 'category',
-        name: 'Category',
-        attributes: ['- id: string', '+ name: string', '+ description: string'],
-        operations: ['+ getPosts()']
-      },
-      {
-        id: 'tag',
-        name: 'Tag',
-        attributes: ['- id: string', '+ name: string'],
-        operations: ['+ getPosts()']
-      }
-    ],
-    relationships: [
-      { source: 'user', target: 'post', type: 'association', label: 'writes' },
-      { source: 'user', target: 'comment', type: 'association', label: 'writes' },
-      { source: 'post', target: 'comment', type: 'composition', label: 'has' },
-      { source: 'post', target: 'category', type: 'association', label: 'belongs to' },
-      { source: 'post', target: 'tag', type: 'aggregation', label: 'tagged with' }
-    ]
-  },
-
-  // Hospital / Healthcare system
-  hospital: {
-    classes: [
-      {
-        id: 'person',
-        name: 'Person',
-        attributes: ['# id: string', '# name: string', '# dateOfBirth: Date', '# phone: string'],
-        operations: ['+ getAge()', '+ updateContact()']
-      },
-      {
-        id: 'patient',
-        name: 'Patient',
-        attributes: ['- medicalRecordNo: string', '- bloodType: string', '- allergies: string[]'],
-        operations: ['+ getHistory()', '+ scheduleAppointment()']
-      },
-      {
-        id: 'doctor',
-        name: 'Doctor',
-        attributes: ['- licenseNo: string', '- specialization: string', '- department: string'],
-        operations: ['+ diagnose()', '+ prescribe()', '+ getSchedule()']
-      },
-      {
-        id: 'appointment',
-        name: 'Appointment',
-        attributes: ['- id: string', '+ dateTime: Date', '+ status: string', '+ notes: string'],
-        operations: ['+ confirm()', '+ cancel()', '+ reschedule()']
-      },
-      {
-        id: 'prescription',
-        name: 'Prescription',
-        attributes: ['- id: string', '+ medication: string', '+ dosage: string', '+ duration: string'],
-        operations: ['+ refill()', '+ cancel()']
-      }
-    ],
-    relationships: [
-      { source: 'patient', target: 'person', type: 'inheritance' },
-      { source: 'doctor', target: 'person', type: 'inheritance' },
-      { source: 'patient', target: 'appointment', type: 'association', label: 'schedules' },
-      { source: 'doctor', target: 'appointment', type: 'association', label: 'attends' },
-      { source: 'doctor', target: 'prescription', type: 'association', label: 'writes' },
-      { source: 'patient', target: 'prescription', type: 'association', label: 'receives' }
-    ]
-  },
-
-  // School / Education system
-  school: {
-    classes: [
-      {
-        id: 'person',
-        name: 'Person',
-        attributes: ['# id: string', '# name: string', '# email: string'],
-        operations: ['+ getInfo()']
-      },
-      {
-        id: 'student',
-        name: 'Student',
-        attributes: ['- studentId: string', '- enrollmentDate: Date', '- gpa: number'],
-        operations: ['+ enroll()', '+ drop()', '+ getTranscript()']
-      },
-      {
-        id: 'teacher',
-        name: 'Teacher',
-        attributes: ['- employeeId: string', '- department: string', '- salary: number'],
-        operations: ['+ teach()', '+ gradeAssignment()']
-      },
-      {
-        id: 'course',
-        name: 'Course',
-        attributes: ['- id: string', '+ name: string', '+ credits: number', '+ description: string'],
-        operations: ['+ addStudent()', '+ removeStudent()', '+ getSyllabus()']
-      },
-      {
-        id: 'enrollment',
-        name: 'Enrollment',
-        attributes: ['- id: string', '+ grade: string', '+ semester: string'],
-        operations: ['+ updateGrade()']
-      }
-    ],
-    relationships: [
-      { source: 'student', target: 'person', type: 'inheritance' },
-      { source: 'teacher', target: 'person', type: 'inheritance' },
-      { source: 'teacher', target: 'course', type: 'association', label: 'teaches' },
-      { source: 'student', target: 'enrollment', type: 'association', label: 'has' },
-      { source: 'enrollment', target: 'course', type: 'association', label: 'for' }
-    ]
-  },
-
-  // Restaurant / Food ordering system
-  restaurant: {
-    classes: [
-      {
-        id: 'customer',
-        name: 'Customer',
-        attributes: ['- id: string', '+ name: string', '+ phone: string', '- loyaltyPoints: number'],
-        operations: ['+ placeOrder()', '+ makeReservation()']
-      },
-      {
-        id: 'menuitem',
-        name: 'MenuItem',
-        attributes: ['- id: string', '+ name: string', '+ price: number', '+ category: string', '- available: boolean'],
-        operations: ['+ updatePrice()', '+ setAvailability()']
-      },
-      {
-        id: 'order',
-        name: 'Order',
-        attributes: ['- id: string', '+ total: number', '+ status: string', '+ createdAt: Date'],
-        operations: ['+ addItem()', '+ removeItem()', '+ calculateTotal()']
-      },
-      {
-        id: 'orderitem',
-        name: 'OrderItem',
-        attributes: ['- quantity: number', '+ specialInstructions: string'],
-        operations: ['+ updateQuantity()']
-      },
-      {
-        id: 'table',
-        name: 'Table',
-        attributes: ['- id: string', '+ number: number', '+ capacity: number', '- status: string'],
-        operations: ['+ reserve()', '+ release()']
-      }
-    ],
-    relationships: [
-      { source: 'customer', target: 'order', type: 'association', label: 'places' },
-      { source: 'order', target: 'orderitem', type: 'composition', label: 'contains' },
-      { source: 'orderitem', target: 'menuitem', type: 'association', label: 'references' },
-      { source: 'order', target: 'table', type: 'association', label: 'assigned to' }
-    ]
-  },
-
-  // Banking / Finance system
-  banking: {
-    classes: [
-      {
-        id: 'customer',
-        name: 'Customer',
-        attributes: ['- id: string', '+ name: string', '- ssn: string', '+ address: string'],
-        operations: ['+ openAccount()', '+ closeAccount()', '+ getStatement()']
-      },
-      {
-        id: 'account',
-        name: 'Account',
-        attributes: ['# accountNo: string', '# balance: number', '# openedDate: Date', '# status: string'],
-        operations: ['+ deposit()', '+ withdraw()', '+ getBalance()']
-      },
-      {
-        id: 'savingsaccount',
-        name: 'SavingsAccount',
-        attributes: ['- interestRate: number', '- minBalance: number'],
-        operations: ['+ calculateInterest()', '+ applyInterest()']
-      },
-      {
-        id: 'checkingaccount',
-        name: 'CheckingAccount',
-        attributes: ['- overdraftLimit: number'],
-        operations: ['+ writeCheck()']
-      },
-      {
-        id: 'transaction',
-        name: 'Transaction',
-        attributes: ['- id: string', '+ amount: number', '+ type: string', '+ timestamp: Date'],
-        operations: ['+ process()', '+ reverse()']
-      }
-    ],
-    relationships: [
-      { source: 'customer', target: 'account', type: 'association', label: 'owns' },
-      { source: 'savingsaccount', target: 'account', type: 'inheritance' },
-      { source: 'checkingaccount', target: 'account', type: 'inheritance' },
-      { source: 'account', target: 'transaction', type: 'composition', label: 'has' }
-    ]
-  },
-
-  // Default / Simple system
-  default: {
-    classes: [
-      {
-        id: 'class1',
-        name: 'Entity',
-        attributes: ['- id: string', '+ name: string'],
-        operations: ['+ create()', '+ update()', '+ delete()']
-      },
-      {
-        id: 'class2',
-        name: 'Service',
-        attributes: ['- config: object'],
-        operations: ['+ process()', '+ validate()']
-      }
-    ],
-    relationships: [
-      { source: 'class2', target: 'class1', type: 'association', label: 'manages' }
-    ]
-  }
-};
-
-/**
- * Detects keywords in the prompt to select appropriate template
- */
-function detectTemplate(prompt: string): string {
-  const lowerPrompt = prompt.toLowerCase();
-  
-  // E-commerce / Shopping system
-  if (lowerPrompt.includes('shop') || lowerPrompt.includes('ecommerce') || 
-      lowerPrompt.includes('e-commerce') || lowerPrompt.includes('store') ||
-      lowerPrompt.includes('cart') || lowerPrompt.includes('order') ||
-      lowerPrompt.includes('product') || lowerPrompt.includes('online store')) {
-    return 'ecommerce';
-  }
-  
-  // Library system
-  if (lowerPrompt.includes('library') || lowerPrompt.includes('book') ||
-      lowerPrompt.includes('borrow') || lowerPrompt.includes('loan') ||
-      lowerPrompt.includes('librarian')) {
-    return 'library';
-  }
-  
-  // Vehicle / Car system
-  if (lowerPrompt.includes('vehicle') || lowerPrompt.includes('car') ||
-      lowerPrompt.includes('motorcycle') || lowerPrompt.includes('engine') ||
-      lowerPrompt.includes('automobile') || lowerPrompt.includes('truck')) {
-    return 'vehicle';
-  }
-
-  // Blog / CMS system
-  if (lowerPrompt.includes('blog') || lowerPrompt.includes('cms') ||
-      lowerPrompt.includes('post') || lowerPrompt.includes('article') ||
-      lowerPrompt.includes('comment') || lowerPrompt.includes('content management')) {
-    return 'blog';
-  }
-
-  // Hospital / Healthcare system
-  if (lowerPrompt.includes('hospital') || lowerPrompt.includes('healthcare') ||
-      lowerPrompt.includes('patient') || lowerPrompt.includes('doctor') ||
-      lowerPrompt.includes('medical') || lowerPrompt.includes('clinic') ||
-      lowerPrompt.includes('appointment') || lowerPrompt.includes('prescription')) {
-    return 'hospital';
-  }
-
-  // School / Education system
-  if (lowerPrompt.includes('school') || lowerPrompt.includes('education') ||
-      lowerPrompt.includes('student') || lowerPrompt.includes('teacher') ||
-      lowerPrompt.includes('course') || lowerPrompt.includes('university') ||
-      lowerPrompt.includes('college') || lowerPrompt.includes('class')) {
-    return 'school';
-  }
-
-  // Restaurant / Food ordering system
-  if (lowerPrompt.includes('restaurant') || lowerPrompt.includes('food') ||
-      lowerPrompt.includes('menu') || lowerPrompt.includes('table') ||
-      lowerPrompt.includes('reservation') || lowerPrompt.includes('dining') ||
-      lowerPrompt.includes('cafe') || lowerPrompt.includes('kitchen')) {
-    return 'restaurant';
-  }
-
-  // Banking / Finance system
-  if (lowerPrompt.includes('bank') || lowerPrompt.includes('finance') ||
-      lowerPrompt.includes('account') || lowerPrompt.includes('transaction') ||
-      lowerPrompt.includes('savings') || lowerPrompt.includes('checking') ||
-      lowerPrompt.includes('deposit') || lowerPrompt.includes('withdraw')) {
-    return 'banking';
-  }
-  
-  return 'default';
-}
-
-/**
  * Configuration for the AI service
  */
 export interface AIServiceConfig {
-  /** Whether to simulate network delay (default: true) */
-  simulateDelay?: boolean;
-  /** Minimum delay in ms (default: 500) */
-  minDelay?: number;
-  /** Maximum delay in ms (default: 1500) */
-  maxDelay?: number;
+  /** Override API key (uses stored key if not provided) */
+  apiKey?: string;
 }
 
-const defaultConfig: Required<AIServiceConfig> = {
-  simulateDelay: true,
-  minDelay: 500,
-  maxDelay: 1500,
-};
-
 /**
- * Simulates network delay for realistic async behavior
+ * Error thrown when API key is not configured
  */
-function simulateDelay(config: Required<AIServiceConfig>): Promise<void> {
-  if (!config.simulateDelay) {
-    return Promise.resolve();
+export class ApiKeyNotConfiguredError extends Error {
+  constructor() {
+    super('Gemini API key is not configured. Please add your API key in settings.');
+    this.name = 'ApiKeyNotConfiguredError';
   }
-  const delay = config.minDelay + Math.random() * (config.maxDelay - config.minDelay);
-  return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 /**
- * Generates a UML diagram from a natural language prompt
- * This is a simulated implementation that returns predefined responses
- * Can be replaced with actual LLM API calls
+ * Error thrown when UML generation fails
+ */
+export class UMLGenerationError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = 'UMLGenerationError';
+  }
+}
+
+/**
+ * System prompt for Gemini to generate UML class diagrams
+ */
+const SYSTEM_PROMPT = `You are a UML class diagram generator. Your task is to analyze the user's description and generate a valid UML class diagram in JSON format.
+
+IMPORTANT: You must respond ONLY with valid JSON, no explanation or markdown code blocks.
+
+The JSON must follow this exact schema:
+{
+  "classes": [
+    {
+      "id": "unique_lowercase_id",
+      "name": "ClassName",
+      "attributes": ["- privateAttr: type", "+ publicAttr: type", "# protectedAttr: type"],
+      "operations": ["+ methodName(): returnType", "- privateMethod(param: type)"]
+    }
+  ],
+  "relationships": [
+    {
+      "source": "source_class_id",
+      "target": "target_class_id", 
+      "type": "association|inheritance|composition|aggregation",
+      "label": "optional relationship label"
+    }
+  ]
+}
+
+Rules:
+1. Class IDs must be lowercase, unique, and match the source/target in relationships
+2. Use proper UML visibility markers: + (public), - (private), # (protected)
+3. Include relevant attributes and operations for each class
+4. Use appropriate relationship types:
+   - inheritance: for "is-a" relationships (child extends parent)
+   - composition: for strong "has-a" (part cannot exist without whole)
+   - aggregation: for weak "has-a" (part can exist independently)
+   - association: for general relationships
+5. Generate 3-8 classes with meaningful relationships
+6. Make the diagram represent a complete, coherent system design`;
+
+/**
+ * Parses the Gemini response to extract valid JSON
+ */
+function parseGeminiResponse(text: string): UMLDiagram {
+  // Try to extract JSON from the response
+  let jsonText = text.trim();
+
+  // Remove markdown code blocks if present
+  const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonText = jsonMatch[1].trim();
+  }
+
+  // Try to find JSON object boundaries
+  const startIdx = jsonText.indexOf('{');
+  const endIdx = jsonText.lastIndexOf('}');
+
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+    throw new Error('No valid JSON object found in response');
+  }
+
+  jsonText = jsonText.slice(startIdx, endIdx + 1);
+
+  try {
+    const parsed = JSON.parse(jsonText) as UMLDiagram;
+
+    // Validate the parsed object has required structure
+    if (!Array.isArray(parsed.classes)) {
+      throw new Error('Missing or invalid "classes" array');
+    }
+    if (!Array.isArray(parsed.relationships)) {
+      throw new Error('Missing or invalid "relationships" array');
+    }
+
+    // Run through the UML validator
+    const validation = validateUML(parsed);
+    if (!validation.valid) {
+      console.warn('UML validation warnings:', validation.errors);
+      // Don't throw - try to use the diagram anyway
+    }
+
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON syntax: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Generates a UML diagram from a natural language prompt using Gemini AI
  * 
  * @param prompt - Natural language description of the system
- * @param config - Optional configuration for delay simulation
+ * @param config - Optional configuration (API key override)
  * @returns Promise resolving to a UMLDiagram
+ * @throws ApiKeyNotConfiguredError if no API key is available
+ * @throws UMLGenerationError if generation fails
  */
-export async function generateUML(prompt: string, config?: AIServiceConfig): Promise<UMLDiagram> {
-  const mergedConfig = { ...defaultConfig, ...config };
-  
-  // Simulate API delay if enabled
-  await simulateDelay(mergedConfig);
-  
-  // Detect which template to use based on prompt keywords
-  const templateKey = detectTemplate(prompt);
-  
-  // Return a deep copy of the template to prevent mutation
-  const template = responseTemplates[templateKey];
-  return JSON.parse(JSON.stringify(template)) as UMLDiagram;
+export async function generateUML(
+  prompt: string,
+  config?: AIServiceConfig
+): Promise<UMLDiagram> {
+  // Get API key
+  const apiKey = config?.apiKey ?? getApiKey();
+
+  if (!apiKey) {
+    throw new ApiKeyNotConfiguredError();
+  }
+
+  try {
+    // Initialize Gemini client
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Generate content with streaming
+    const response = await ai.models.generateContentStream({
+      model: 'gemini-3-flash-preview',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `${SYSTEM_PROMPT}\n\nUser Request: ${prompt}`,
+            },
+          ],
+        },
+      ],
+      config: {
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.HIGH,
+        },
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      },
+    });
+
+    // Collect the full response
+    let fullText = '';
+    for await (const chunk of response) {
+      if (chunk.text) {
+        fullText += chunk.text;
+      }
+    }
+
+    if (!fullText || fullText.trim().length === 0) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    // Parse and validate the response
+    return parseGeminiResponse(fullText);
+
+  } catch (error) {
+    // Re-throw our custom errors
+    if (error instanceof ApiKeyNotConfiguredError) {
+      throw error;
+    }
+
+    // Handle specific API errors
+    if (error instanceof Error) {
+      // Check for authentication errors
+      if (error.message.includes('API key') || error.message.includes('401')) {
+        throw new UMLGenerationError(
+          'Invalid API key. Please check your Gemini API key in settings.',
+          error
+        );
+      }
+
+      // Check for rate limiting
+      if (error.message.includes('429') || error.message.includes('quota')) {
+        throw new UMLGenerationError(
+          'API rate limit exceeded. Please wait a moment and try again.',
+          error
+        );
+      }
+
+      throw new UMLGenerationError(
+        `Failed to generate UML diagram: ${error.message}`,
+        error
+      );
+    }
+
+    throw new UMLGenerationError('An unexpected error occurred', error);
+  }
 }
 
 /**
  * Default AI service instance
  */
 export const aiService: AIService = {
-  generateUML
+  generateUML,
 };
 
 export default aiService;

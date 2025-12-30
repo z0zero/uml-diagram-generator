@@ -1,8 +1,37 @@
-import { describe, it, expect } from 'vitest';
-import * as fc from 'fast-check';
-import { generateUML } from './aiService';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { validateUML } from './umlParser';
 import type { UMLDiagram, RelationshipType } from '../types';
+
+// ============================================
+// Sample UML Diagram for Tests
+// ============================================
+
+const sampleUMLDiagram: UMLDiagram = {
+  classes: [
+    {
+      id: 'user',
+      name: 'User',
+      attributes: ['- id: string', '+ name: string', '+ email: string'],
+      operations: ['+ register()', '+ login()'],
+    },
+    {
+      id: 'product',
+      name: 'Product',
+      attributes: ['- id: string', '+ name: string', '+ price: number'],
+      operations: ['+ getDetails()'],
+    },
+    {
+      id: 'order',
+      name: 'Order',
+      attributes: ['- id: string', '+ total: number', '+ status: string'],
+      operations: ['+ create()', '+ cancel()'],
+    },
+  ],
+  relationships: [
+    { source: 'user', target: 'order', type: 'association', label: 'places' },
+    { source: 'order', target: 'product', type: 'aggregation', label: 'contains' },
+  ],
+};
 
 // ============================================
 // Helper Functions for Schema Validation
@@ -28,7 +57,7 @@ function isValidUMLDiagramSchema(diagram: UMLDiagram): boolean {
     if (typeof cls.name !== 'string' || cls.name.length === 0) return false;
     if (!Array.isArray(cls.attributes)) return false;
     if (!Array.isArray(cls.operations)) return false;
-    
+
     // All attributes must be strings
     if (!cls.attributes.every((attr) => typeof attr === 'string')) return false;
     // All operations must be strings
@@ -44,7 +73,7 @@ function isValidUMLDiagramSchema(diagram: UMLDiagram): boolean {
     if (typeof rel.target !== 'string') return false;
     if (!validTypes.includes(rel.type)) return false;
     if (rel.label !== undefined && typeof rel.label !== 'string') return false;
-    
+
     // Source and target must reference existing classes
     if (!classIds.has(rel.source)) return false;
     if (!classIds.has(rel.target)) return false;
@@ -54,67 +83,103 @@ function isValidUMLDiagramSchema(diagram: UMLDiagram): boolean {
 }
 
 // ============================================
-// Generators for Property-Based Testing
-// ============================================
-
-// Generator for random prompts
-const promptGen = fc.oneof(
-  // Keywords that should trigger specific templates
-  fc.constantFrom(
-    'Create a shopping cart system',
-    'Design an e-commerce platform',
-    'Build a product catalog with orders',
-    'Library management system',
-    'Book borrowing application',
-    'Vehicle rental system',
-    'Car dealership management',
-    'Motorcycle inventory'
-  ),
-  // Random strings that should fall back to default
-  fc.string({ minLength: 1, maxLength: 100 }),
-  // Empty-ish strings
-  fc.constantFrom('', ' ', 'hello', 'test', 'random words here')
-);
-
-// ============================================
-// Property Tests
+// Tests
 // ============================================
 
 describe('AI Service', () => {
-  /**
-   * Feature: uml-diagram-generator, Property 12: AI Response Schema Conformance
-   * *For any* prompt submitted, the simulated AI response SHALL conform to the UMLDiagram
-   * JSON schema (valid classes array and relationships array).
-   * **Validates: Requirements 5.1, 5.3**
-   */
-  describe('Property 12: AI Response Schema Conformance', () => {
-    it('should return a valid UMLDiagram schema for any prompt', async () => {
-      await fc.assert(
-        fc.asyncProperty(promptGen, async (prompt) => {
-          // Generate UML from prompt (disable delay for testing)
-          const result = await generateUML(prompt, { simulateDelay: false });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
-          // Property: Result must conform to UMLDiagram schema
-          expect(isValidUMLDiagramSchema(result)).toBe(true);
+  describe('UML Schema Validation', () => {
+    it('should validate a correct UML diagram schema', () => {
+      expect(isValidUMLDiagramSchema(sampleUMLDiagram)).toBe(true);
 
-          // Property: Result must pass the UML parser validation
-          const validation = validateUML(result);
-          expect(validation.valid).toBe(true);
-          expect(validation.errors).toHaveLength(0);
+      const validation = validateUML(sampleUMLDiagram);
+      expect(validation.valid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
 
-          // Property: Must have at least one class
-          expect(result.classes.length).toBeGreaterThan(0);
+    it('should reject an invalid UML diagram (missing classes)', () => {
+      const invalid = { relationships: [] } as unknown as UMLDiagram;
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
 
-          // Property: Classes array must exist and be an array
-          expect(Array.isArray(result.classes)).toBe(true);
+    it('should reject an invalid UML diagram (missing relationships)', () => {
+      const invalid = { classes: [] } as unknown as UMLDiagram;
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
 
-          // Property: Relationships array must exist and be an array
-          expect(Array.isArray(result.relationships)).toBe(true);
+    it('should reject classes with empty id', () => {
+      const invalid: UMLDiagram = {
+        classes: [{ id: '', name: 'Test', attributes: [], operations: [] }],
+        relationships: [],
+      };
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
 
-          return true;
-        }),
-        { numRuns: 100 }
-      );
+    it('should reject classes with empty name', () => {
+      const invalid: UMLDiagram = {
+        classes: [{ id: 'test', name: '', attributes: [], operations: [] }],
+        relationships: [],
+      };
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
+
+    it('should reject invalid relationship types', () => {
+      const invalid: UMLDiagram = {
+        classes: [
+          { id: 'a', name: 'A', attributes: [], operations: [] },
+          { id: 'b', name: 'B', attributes: [], operations: [] },
+        ],
+        relationships: [
+          { source: 'a', target: 'b', type: 'invalid' as RelationshipType },
+        ],
+      };
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
+
+    it('should reject relationships referencing non-existent classes', () => {
+      const invalid: UMLDiagram = {
+        classes: [{ id: 'a', name: 'A', attributes: [], operations: [] }],
+        relationships: [
+          { source: 'a', target: 'nonexistent', type: 'association' },
+        ],
+      };
+      expect(isValidUMLDiagramSchema(invalid)).toBe(false);
+    });
+  });
+
+  describe('Error Classes', () => {
+    it('should export ApiKeyNotConfiguredError', async () => {
+      const { ApiKeyNotConfiguredError } = await import('./aiService');
+      expect(ApiKeyNotConfiguredError).toBeDefined();
+
+      const error = new ApiKeyNotConfiguredError();
+      expect(error.name).toBe('ApiKeyNotConfiguredError');
+      expect(error.message).toContain('API key');
+    });
+
+    it('should export UMLGenerationError', async () => {
+      const { UMLGenerationError } = await import('./aiService');
+      expect(UMLGenerationError).toBeDefined();
+
+      const error = new UMLGenerationError('Test error');
+      expect(error.name).toBe('UMLGenerationError');
+      expect(error.message).toBe('Test error');
+    });
+  });
+
+  describe('Service Interface', () => {
+    it('should export generateUML function', async () => {
+      const { generateUML } = await import('./aiService');
+      expect(typeof generateUML).toBe('function');
+    });
+
+    it('should export aiService object with generateUML method', async () => {
+      const { aiService } = await import('./aiService');
+      expect(aiService).toBeDefined();
+      expect(typeof aiService.generateUML).toBe('function');
     });
   });
 });
