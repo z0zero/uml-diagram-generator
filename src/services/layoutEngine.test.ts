@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { calculateLayout, DEFAULT_LAYOUT_CONFIG, getNodeSpacing } from './layoutEngine';
-import type { ClassNode, RelationshipEdge, RelationshipType } from '../types';
+import type { DiagramNode, DiagramEdge, RelationshipType, ClassNodeData } from '../types';
 
 // ============================================
 // Generators for Property-Based Testing
@@ -16,16 +16,16 @@ const classNodeDataGen = fc.record({
 });
 
 // Generate a class node with a unique ID
-const classNodeGen = (index: number): fc.Arbitrary<ClassNode> =>
+const classNodeGen = (index: number): fc.Arbitrary<DiagramNode> =>
   classNodeDataGen.map((data) => ({
     id: `node_${index}`,
     type: 'classNode' as const,
     position: { x: 0, y: 0 },
-    data,
+    data: data as ClassNodeData,
   }));
 
 // Generate an array of class nodes with unique IDs
-const classNodesGen: fc.Arbitrary<ClassNode[]> = fc
+const classNodesGen: fc.Arbitrary<DiagramNode[]> = fc
   .integer({ min: 2, max: 6 })
   .chain((count) =>
     fc.tuple(...Array.from({ length: count }, (_, i) => classNodeGen(i)))
@@ -39,14 +39,14 @@ const relationshipTypeGen: fc.Arbitrary<RelationshipType> = fc.constantFrom(
 );
 
 // Generate edges between existing nodes
-const edgesForNodesGen = (nodes: ClassNode[]): fc.Arbitrary<RelationshipEdge[]> => {
+const edgesForNodesGen = (nodes: DiagramNode[]): fc.Arbitrary<DiagramEdge[]> => {
   if (nodes.length < 2) {
     return fc.constant([]);
   }
 
   const nodeIds = nodes.map((n) => n.id);
 
-  const edgeGen: fc.Arbitrary<RelationshipEdge> = fc
+  const edgeGen: fc.Arbitrary<DiagramEdge> = fc
     .tuple(
       fc.constantFrom(...nodeIds),
       fc.constantFrom(...nodeIds),
@@ -67,7 +67,7 @@ const edgesForNodesGen = (nodes: ClassNode[]): fc.Arbitrary<RelationshipEdge[]> 
 };
 
 // Generate a complete diagram with nodes and edges
-const diagramGen: fc.Arbitrary<{ nodes: ClassNode[]; edges: RelationshipEdge[] }> =
+const diagramGen: fc.Arbitrary<{ nodes: DiagramNode[]; edges: DiagramEdge[] }> =
   classNodesGen.chain((nodes) =>
     edgesForNodesGen(nodes).map((edges) => ({ nodes, edges }))
   );
@@ -101,7 +101,7 @@ describe('Layout Engine', () => {
 
           // Group nodes by their Y position (same rank) with tolerance
           const tolerance = 1; // Allow 1px tolerance for floating point
-          const rankGroups = new Map<number, ClassNode[]>();
+          const rankGroups = new Map<number, DiagramNode[]>();
 
           for (const node of layoutedNodes) {
             const roundedY = Math.round(node.position.y / tolerance) * tolerance;

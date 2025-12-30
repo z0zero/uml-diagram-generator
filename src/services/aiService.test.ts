@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { validateUML } from './umlParser';
 import type { UMLDiagram, RelationshipType } from '../types';
 

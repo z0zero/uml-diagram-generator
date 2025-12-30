@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { ParticipantNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+import type { ParticipantType } from '../../../types';
 import { User, Box, Shield, Settings, Database } from 'lucide-react';
 
 const PARTICIPANT_ICONS = {
@@ -11,11 +11,18 @@ const PARTICIPANT_ICONS = {
     entity: Database,
 };
 
+interface ParticipantNodeProps {
+    data: {
+        name: string;
+        participantType: ParticipantType;
+    };
+}
+
 /**
  * Participant node component for Sequence diagrams
  * Renders a box with icon based on participant type
  */
-export const ParticipantNode = memo(function ParticipantNode({ data }: NodeProps<ParticipantNodeData>) {
+export const ParticipantNode = memo(function ParticipantNode({ data }: ParticipantNodeProps) {
     const { name, participantType } = data;
     const Icon = PARTICIPANT_ICONS[participantType] || Box;
 

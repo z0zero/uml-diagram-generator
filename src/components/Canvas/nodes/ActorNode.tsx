@@ -1,12 +1,17 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { ActorNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+
+interface ActorNodeProps {
+    data: {
+        name: string;
+    };
+}
 
 /**
  * Actor node component for Use Case diagrams
  * Renders a stick figure representing an actor
  */
-export const ActorNode = memo(function ActorNode({ data }: NodeProps<ActorNodeData>) {
+export const ActorNode = memo(function ActorNode({ data }: ActorNodeProps) {
     return (
         <div className="flex flex-col items-center" data-testid="actor-node">
             {/* Stick Figure SVG */}

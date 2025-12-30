@@ -31,9 +31,12 @@ export class ApiKeyNotConfiguredError extends Error {
  * Error thrown when UML generation fails
  */
 export class UMLGenerationError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  readonly cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
     super(message);
     this.name = 'UMLGenerationError';
+    this.cause = cause;
   }
 }
 

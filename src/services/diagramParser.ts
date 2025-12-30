@@ -6,7 +6,6 @@ import type {
     UMLRelationship,
     ClassNodeData,
     RelationshipEdgeData,
-    ClassRelationshipType,
     ActorNodeData,
     UseCaseNodeData,
     ActivityNodeData,

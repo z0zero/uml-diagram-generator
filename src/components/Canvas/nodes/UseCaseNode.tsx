@@ -1,12 +1,18 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { UseCaseNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+
+interface UseCaseNodeProps {
+    data: {
+        name: string;
+        description?: string;
+    };
+}
 
 /**
  * Use Case node component for Use Case diagrams
  * Renders an ellipse with the use case name
  */
-export const UseCaseNode = memo(function UseCaseNode({ data }: NodeProps<UseCaseNodeData>) {
+export const UseCaseNode = memo(function UseCaseNode({ data }: UseCaseNodeProps) {
     return (
         <div
             className="relative flex items-center justify-center px-6 py-4 min-w-[120px] min-h-[60px]"

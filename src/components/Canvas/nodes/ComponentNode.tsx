@@ -1,13 +1,21 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { ComponentNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+import type { ComponentInterface } from '../../../types';
 import { Package } from 'lucide-react';
+
+interface ComponentNodeProps {
+    data: {
+        name: string;
+        stereotype?: string;
+        interfaces?: ComponentInterface[];
+    };
+}
 
 /**
  * Component node for Component diagrams
  * Renders a box with component stereotype and interfaces
  */
-export const ComponentNode = memo(function ComponentNode({ data }: NodeProps<ComponentNodeData>) {
+export const ComponentNode = memo(function ComponentNode({ data }: ComponentNodeProps) {
     const { name, stereotype, interfaces = [] } = data;
 
     const providedInterfaces = interfaces.filter(i => i.type === 'provided');

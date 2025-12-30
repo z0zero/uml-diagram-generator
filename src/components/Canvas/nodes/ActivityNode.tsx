@@ -1,12 +1,19 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { ActivityNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+import type { ActivityNodeType } from '../../../types';
+
+interface ActivityNodeProps {
+    data: {
+        nodeType: ActivityNodeType;
+        label: string;
+    };
+}
 
 /**
  * Activity node component for Activity diagrams
  * Renders different shapes based on node type
  */
-export const ActivityNode = memo(function ActivityNode({ data }: NodeProps<ActivityNodeData>) {
+export const ActivityNode = memo(function ActivityNode({ data }: ActivityNodeProps) {
     const { nodeType, label } = data;
 
     // Initial node - filled circle

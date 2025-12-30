@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import { useDiagramStore } from './diagramStore';
 import type {
-  UMLDiagram,
+  UnifiedDiagram,
   UMLClass,
   UMLRelationship,
   RelationshipType,
@@ -69,7 +69,7 @@ const relationshipTypeGen: fc.Arbitrary<RelationshipType> = fc.constantFrom(
 );
 
 // Generate a valid UML diagram with classes and relationships
-const umlDiagramGen: fc.Arbitrary<UMLDiagram> = fc
+const umlDiagramGen: fc.Arbitrary<UnifiedDiagram> = fc
   .array(umlClassGen, { minLength: 1, maxLength: 5 })
   .chain((classes) => {
     // Ensure unique IDs
@@ -90,6 +90,7 @@ const umlDiagramGen: fc.Arbitrary<UMLDiagram> = fc
     });
 
     return fc.record({
+      type: fc.constant('class' as const),
       classes: fc.constant(uniqueClasses),
       relationships: fc.array(relationshipGen, { minLength: 0, maxLength: 5 }),
     });
@@ -138,6 +139,7 @@ describe('Diagram Store', () => {
     useDiagramStore.setState({
       projects: [],
       currentProjectId: null,
+      currentDiagramType: 'class',
       nodes: [],
       edges: [],
       messages: [],
@@ -358,7 +360,7 @@ describe('Diagram Store', () => {
             // Create initial project with data
             store.createProject();
             store.updateDiagramFromUML(uml);
-            
+
             // Add messages with unique IDs
             const uniqueMessages = messages.map((msg, idx) => ({
               ...msg,

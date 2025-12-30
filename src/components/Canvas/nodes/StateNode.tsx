@@ -1,12 +1,21 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { StateNodeData } from '../../../types';
+import { Handle, Position } from '@xyflow/react';
+
+interface StateNodeProps {
+    data: {
+        name: string;
+        isInitial?: boolean;
+        isFinal?: boolean;
+        entryAction?: string;
+        exitAction?: string;
+    };
+}
 
 /**
  * State node component for State Machine diagrams
  * Renders different shapes based on state type
  */
-export const StateNode = memo(function StateNode({ data }: NodeProps<StateNodeData>) {
+export const StateNode = memo(function StateNode({ data }: StateNodeProps) {
     const { name, isInitial, isFinal, entryAction, exitAction } = data;
 
     // Initial state - filled circle

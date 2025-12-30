@@ -13,6 +13,7 @@ const identifier = fc.stringMatching(/^[a-zA-Z][a-zA-Z0-9_]{0,19}$/);
 const projectGen: fc.Arbitrary<Project> = fc.record({
   id: identifier,
   name: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+  diagramType: fc.constant('class' as const),
   createdAt: fc.date(),
   updatedAt: fc.date(),
 });
