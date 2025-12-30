@@ -9,12 +9,12 @@ import type { RelationshipEdgeData, RelationshipType } from '../../types';
 
 /**
  * SVG marker definitions for different UML relationship types.
- * These are defined once and referenced by marker-end attributes.
+ * Styled for Dark Mode compatibility.
  */
 export const RelationshipMarkerDefs = () => (
   <svg style={{ position: 'absolute', width: 0, height: 0 }}>
     <defs>
-      {/* Association: Open arrow (Requirements 9.1) */}
+      {/* Association: Open arrow */}
       <marker
         id="association-marker"
         viewBox="0 0 10 10"
@@ -24,10 +24,10 @@ export const RelationshipMarkerDefs = () => (
         markerHeight="8"
         orient="auto-start-reverse"
       >
-        <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#374151" strokeWidth="1.5" />
+        <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#94a3b8" strokeWidth="1.5" />
       </marker>
 
-      {/* Inheritance: Hollow triangle (Requirements 9.2) */}
+      {/* Inheritance: Hollow triangle */}
       <marker
         id="inheritance-marker"
         viewBox="0 0 10 10"
@@ -37,10 +37,10 @@ export const RelationshipMarkerDefs = () => (
         markerHeight="10"
         orient="auto-start-reverse"
       >
-        <path d="M 0 0 L 10 5 L 0 10 Z" fill="white" stroke="#374151" strokeWidth="1.5" />
+        <path d="M 0 0 L 10 5 L 0 10 Z" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
       </marker>
 
-      {/* Composition: Filled diamond (Requirements 9.3) */}
+      {/* Composition: Filled diamond */}
       <marker
         id="composition-marker"
         viewBox="0 0 12 12"
@@ -50,10 +50,10 @@ export const RelationshipMarkerDefs = () => (
         markerHeight="10"
         orient="auto-start-reverse"
       >
-        <path d="M 0 6 L 6 0 L 12 6 L 6 12 Z" fill="#374151" stroke="#374151" strokeWidth="1" />
+        <path d="M 0 6 L 6 0 L 12 6 L 6 12 Z" fill="#94a3b8" stroke="#94a3b8" strokeWidth="1" />
       </marker>
 
-      {/* Aggregation: Hollow diamond (Requirements 9.4) */}
+      {/* Aggregation: Hollow diamond */}
       <marker
         id="aggregation-marker"
         viewBox="0 0 12 12"
@@ -63,7 +63,7 @@ export const RelationshipMarkerDefs = () => (
         markerHeight="10"
         orient="auto-start-reverse"
       >
-        <path d="M 0 6 L 6 0 L 12 6 L 6 12 Z" fill="white" stroke="#374151" strokeWidth="1.5" />
+        <path d="M 0 6 L 6 0 L 12 6 L 6 12 Z" fill="#0f172a" stroke="#94a3b8" strokeWidth="1.5" />
       </marker>
     </defs>
   </svg>
@@ -84,9 +84,6 @@ export function getMarkerIdForType(type: RelationshipType): string {
 
 /**
  * Custom React Flow edge component for rendering UML relationships.
- * Displays different markers based on relationship type and shows labels.
- * 
- * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
  */
 function RelationshipEdgeComponent({
   id,
@@ -98,6 +95,7 @@ function RelationshipEdgeComponent({
   targetPosition,
   data,
   style,
+  selected,
 }: EdgeProps) {
   const edgeData = data as RelationshipEdgeData | undefined;
   const relationshipType = edgeData?.type ?? 'association';
@@ -121,12 +119,14 @@ function RelationshipEdgeComponent({
         path={edgePath}
         style={{
           ...style,
-          stroke: '#374151',
-          strokeWidth: 1.5,
+          stroke: selected ? '#818cf8' : '#64748b', // indigo-400 : slate-500
+          strokeWidth: selected ? 2 : 1.5,
+          opacity: 0.8,
+          transition: 'all 0.3s ease',
         }}
         markerEnd={`url(#${markerId})`}
       />
-      {/* Relationship label display (Requirement 9.5) */}
+      {/* Relationship label display */}
       {label && (
         <EdgeLabelRenderer>
           <div
@@ -135,7 +135,7 @@ function RelationshipEdgeComponent({
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
             }}
-            className="px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-700 shadow-sm"
+            className="px-2 py-0.5 bg-slate-900 border border-slate-600 rounded-full text-[10px] text-slate-300 shadow-sm backdrop-blur-md"
             data-testid={`edge-label-${id}`}
           >
             {label}

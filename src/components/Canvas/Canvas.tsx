@@ -4,6 +4,7 @@ import {
   Controls,
   Background,
   BackgroundVariant,
+  MiniMap,
   type OnNodesChange,
   type OnEdgesChange,
   applyNodeChanges,
@@ -15,36 +16,24 @@ import { useDiagramStore } from '../../store/diagramStore';
 import { ClassNode } from './ClassNode';
 import { RelationshipEdge, RelationshipMarkerDefs } from './RelationshipEdge';
 
-/**
- * Custom node types for React Flow
- * Maps 'classNode' type to our ClassNode component
- */
 const nodeTypes = {
   classNode: ClassNode,
 };
 
-/**
- * Custom edge types for React Flow
- * Maps 'relationshipEdge' type to our RelationshipEdge component
- */
 const edgeTypes = {
   relationshipEdge: RelationshipEdge,
 };
 
 /**
  * Canvas component for rendering UML diagrams using React Flow.
- * Provides pan, zoom, and displays class nodes with relationship edges.
- * 
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ * Redesigned with Dark Mode, Minimap, and Custom Controls.
  */
 export function Canvas() {
-  // Get state and actions from Zustand store
   const nodes = useDiagramStore((state) => state.nodes);
   const edges = useDiagramStore((state) => state.edges);
   const setNodes = useDiagramStore((state) => state.setNodes);
   const setEdges = useDiagramStore((state) => state.setEdges);
 
-  // Handle node changes (position updates, selection, etc.)
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       const updatedNodes = applyNodeChanges(changes, nodes);
@@ -53,7 +42,6 @@ export function Canvas() {
     [nodes, setNodes]
   );
 
-  // Handle edge changes (selection, removal, etc.)
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       const updatedEdges = applyEdgeChanges(changes, edges);
@@ -62,19 +50,19 @@ export function Canvas() {
     [edges, setEdges]
   );
 
-  // Memoize default edge options
   const defaultEdgeOptions = useMemo(
     () => ({
       type: 'relationshipEdge',
+      animated: true,
     }),
     []
   );
 
   return (
-    <div className="flex-1 h-full relative" data-testid="canvas-container">
-      {/* SVG marker definitions for relationship edges */}
+    <div className="flex-1 h-full relative overflow-hidden" data-testid="canvas-container">
+      {/* SVG marker definitions */}
       <RelationshipMarkerDefs />
-      
+
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -83,17 +71,28 @@ export function Canvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
+        colorMode="dark"
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={2}
-        attributionPosition="bottom-left"
+        attributionPosition="bottom-right"
+        className="bg-transparent"
       >
-        {/* Pan and zoom controls (Requirement 3.4) */}
-        <Controls />
-        
-        {/* Background grid for visual reference */}
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+        <Controls className="!bg-slate-800/80 !border-slate-700 !text-slate-200 !fill-slate-200 [&>button]:!border-slate-700 hover:[&>button]:!bg-slate-700 overflow-hidden rounded-lg shadow-lg backdrop-blur-md" />
+
+        <MiniMap
+          className="!bg-slate-900/80 !border-slate-700 rounded-lg shadow-lg overflow-hidden"
+          nodeColor="#6366f1"
+          maskColor="rgba(15, 23, 42, 0.6)"
+        />
+
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="rgba(148, 163, 184, 0.2)"
+        />
       </ReactFlow>
     </div>
   );

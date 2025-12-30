@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Send, Loader2, Lightbulb } from 'lucide-react';
+import { Send, Loader2, Sparkles, ChevronDown } from 'lucide-react';
 import { MessageList } from './MessageList';
 import type { Message } from '../../types';
 
@@ -25,14 +25,7 @@ const examplePrompts = [
 
 /**
  * PromptPanel component provides a chat interface for user prompts.
- * Features:
- * - Text input area for entering prompts
- * - Submit button to send prompts
- * - Loading indicator during AI processing
- * - Conversation history display
- * - Support for follow-up prompts
- * 
- * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
+ * Redesigned with glassmorphism and modern inputs.
  */
 export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps) {
   const [inputValue, setInputValue] = useState('');
@@ -43,6 +36,7 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
     if (trimmedValue && !isLoading) {
       onSubmit(trimmedValue);
       setInputValue('');
+      setShowExamples(false);
     }
   }, [inputValue, isLoading, onSubmit]);
 
@@ -63,82 +57,91 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
 
   return (
     <aside
-      className="w-80 h-full bg-white border-l border-gray-200 flex flex-col"
+      className="h-[96vh] my-[2vh] w-[350px] mr-4 flex flex-col glass-dark rounded-2xl border-slate-700/50 shadow-2xl relative overflow-hidden transition-all duration-300"
       data-testid="prompt-panel"
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Prompt</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Describe your system to generate a UML diagram
-        </p>
+      <div className="p-4 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl z-20">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">AI Assistant</h2>
+            <p className="text-[10px] text-slate-500">Powered by Gemini</p>
+          </div>
+        </div>
       </div>
 
       {/* Message List */}
       <MessageList messages={messages} />
 
       {/* Input Area */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex flex-col gap-2">
+      <div className="p-4 bg-slate-900/40 backdrop-blur-xl border-t border-white/5 z-20">
+        <div className="flex flex-col gap-3 relative">
+
           {/* Example Prompts Toggle */}
           <div className="relative">
             <button
               onClick={() => setShowExamples(!showExamples)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors py-1"
               data-testid="examples-toggle"
             >
-              <Lightbulb className="w-3 h-3" />
-              <span>{showExamples ? 'Hide examples' : 'Show example prompts'}</span>
+              <Sparkles className="w-3 h-3" />
+              <span>{showExamples ? 'Hide examples' : 'Try an example'}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showExamples ? 'rotate-180' : ''}`} />
             </button>
-            
-            {/* Example Prompts Dropdown */}
+
             {showExamples && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-10">
-                {examplePrompts.map((example, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleExampleClick(example)}
-                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0"
-                    data-testid={`example-prompt-${index}`}
-                  >
-                    {example}
-                  </button>
-                ))}
+              <div className="absolute bottom-full left-0 right-0 mb-3 bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-slide-up z-50">
+                <div className="p-1">
+                  {examplePrompts.map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleExampleClick(example)}
+                      className="w-full text-left px-3 py-2.5 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors rounded-lg flex items-start gap-2"
+                      data-testid={`example-prompt-${index}`}
+                    >
+                      <span className="opacity-50 mt-0.5">•</span>
+                      {example}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe your system..."
-            disabled={isLoading}
-            className="w-full h-24 px-3 py-2 text-sm border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
-            data-testid="prompt-input"
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !inputValue.trim()}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md transition-colors ${
-              isLoading || !inputValue.trim()
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-            data-testid="submit-btn"
-          >
-            {isLoading ? (
-              <>
+          <div className="relative group">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Describe the system structure..."
+              disabled={isLoading}
+              className="w-full h-24 pl-4 pr-12 py-3 text-sm bg-slate-950/50 text-slate-200 border border-slate-700/50 rounded-xl resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 focus:bg-slate-900/80 transition-all placeholder:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="prompt-input"
+            />
+
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || !inputValue.trim()}
+              className={`absolute bottom-3 right-3 p-2 rounded-lg transition-all duration-300 ${isLoading || !inputValue.trim()
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 active:scale-95'
+                }`}
+              data-testid="submit-btn"
+            >
+              {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
+              ) : (
                 <Send className="w-4 h-4" />
-                <span>Generate</span>
-              </>
-            )}
-          </button>
+              )}
+            </button>
+          </div>
+
+          <div className="text-[10px] text-center text-slate-600">
+            Press Enter to generate
+          </div>
         </div>
       </div>
     </aside>

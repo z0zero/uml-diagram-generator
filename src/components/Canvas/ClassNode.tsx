@@ -4,54 +4,57 @@ import type { ClassNode as ClassNodeType } from '../../types';
 
 /**
  * Custom React Flow node component for rendering UML class diagrams.
- * Displays class name, attributes, and operations in standard UML notation.
- * 
- * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+ * Design: Modern Card with Gradient Header and Glassmorphic body.
  */
 function ClassNodeComponent({ data }: NodeProps<ClassNodeType>) {
   const { name, attributes, operations } = data;
 
   return (
-    <div className="min-w-[180px] bg-white border-2 border-gray-800 rounded shadow-md text-gray-900">
+    <div className="min-w-[200px] bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 hover:border-indigo-500/50 hover:shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)] group">
       {/* Connection handles */}
-      <Handle type="target" position={Position.Top} className="w-2 h-2" />
-      
-      {/* Class name header section (Requirement 8.1) */}
-      <div className="px-3 py-2 text-center font-bold bg-gray-100 border-b-2 border-gray-800">
-        {name}
+      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-indigo-500 border-2 border-slate-900 transition-all group-hover:w-4 group-hover:h-4" />
+
+      {/* Class name header section */}
+      <div className="px-4 py-3 text-center font-bold bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700/50 relative">
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent opacity-50" />
+        <span className="bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent group-hover:from-indigo-200 group-hover:to-violet-200 transition-colors">
+          {name}
+        </span>
       </div>
-      
-      {/* Attributes section with visibility markers (Requirements 8.2, 8.4, 8.5) */}
-      <div className="px-3 py-2 border-b-2 border-gray-800 min-h-[24px]">
+
+      {/* Attributes section */}
+      <div className="px-4 py-3 border-b border-slate-700/30 min-h-[30px] bg-white/[0.02]">
         {attributes.length > 0 ? (
-          <ul className="list-none m-0 p-0 text-sm font-mono">
+          <ul className="list-none m-0 p-0 text-xs font-mono text-slate-300 space-y-1.5">
             {attributes.map((attr, index) => (
-              <li key={index} className="whitespace-nowrap">
-                {attr}
+              <li key={index} className="flex items-center gap-2 transition-colors hover:text-indigo-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/50 shrink-0" />
+                <span className="truncate">{attr}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <span className="text-gray-400 text-sm italic">No attributes</span>
+          <span className="text-slate-600 text-xs italic opacity-50">No attributes</span>
         )}
       </div>
-      
-      {/* Operations section with visibility markers (Requirements 8.3, 8.4, 8.5) */}
-      <div className="px-3 py-2 min-h-[24px]">
+
+      {/* Operations section */}
+      <div className="px-4 py-3 min-h-[30px] bg-white/[0.02]">
         {operations.length > 0 ? (
-          <ul className="list-none m-0 p-0 text-sm font-mono">
+          <ul className="list-none m-0 p-0 text-xs font-mono text-slate-300 space-y-1.5">
             {operations.map((op, index) => (
-              <li key={index} className="whitespace-nowrap">
-                {op}
+              <li key={index} className="flex items-center gap-2 transition-colors hover:text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 shrink-0" />
+                <span className="truncate">{op}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <span className="text-gray-400 text-sm italic">No operations</span>
+          <span className="text-slate-600 text-xs italic opacity-50">No operations</span>
         )}
       </div>
-      
-      <Handle type="source" position={Position.Bottom} className="w-2 h-2" />
+
+      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-violet-500 border-2 border-slate-900 transition-all group-hover:w-4 group-hover:h-4" />
     </div>
   );
 }

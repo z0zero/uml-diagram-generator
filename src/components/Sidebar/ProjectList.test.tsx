@@ -49,6 +49,7 @@ describe('ProjectList Component', () => {
             <ProjectList
               projects={projects}
               currentProjectId={null}
+              isCollapsed={false}
               onLoadProject={mockOnLoadProject}
               onDeleteProject={mockOnDeleteProject}
             />

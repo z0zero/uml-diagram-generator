@@ -107,31 +107,41 @@ function App() {
 
   return (
     <ReactFlowProvider>
-      <div 
-        className="flex h-screen w-screen overflow-hidden bg-gray-50"
+      <div
+        className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100"
         data-testid="app-container"
       >
+        {/* Decorative Background Gradients */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px]" />
+        </div>
+
         {/* Sidebar - Left Panel (Requirement 1.1) */}
-        <Sidebar
-          projects={projects}
-          currentProjectId={currentProjectId}
-          onCreateNew={createProject}
-          onSave={saveProject}
-          onLoadProject={loadProject}
-          onDeleteProject={deleteProject}
-        />
+        <div className="z-10 h-full">
+          <Sidebar
+            projects={projects}
+            currentProjectId={currentProjectId}
+            onCreateNew={createProject}
+            onSave={saveProject}
+            onLoadProject={loadProject}
+            onDeleteProject={deleteProject}
+          />
+        </div>
 
         {/* Canvas - Center Panel (Requirement 1.2) */}
-        <main className="flex-1 h-full min-w-0">
+        <main className="flex-1 h-full min-w-0 z-0 relative">
           <Canvas />
         </main>
 
         {/* PromptPanel - Right Panel (Requirement 1.3) */}
-        <PromptPanel
-          messages={messages}
-          isLoading={isLoading}
-          onSubmit={handlePromptSubmit}
-        />
+        <div className="z-10 h-full">
+          <PromptPanel
+            messages={messages}
+            isLoading={isLoading}
+            onSubmit={handlePromptSubmit}
+          />
+        </div>
       </div>
     </ReactFlowProvider>
   );
