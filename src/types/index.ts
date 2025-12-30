@@ -142,4 +142,7 @@ export interface DiagramStore {
 
   // UML Update Action
   updateDiagramFromUML: (uml: UMLDiagram) => void;
+
+  // Project Name Update Action
+  updateProjectName: (name: string) => void;
 }

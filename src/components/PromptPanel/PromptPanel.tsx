@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Lightbulb } from 'lucide-react';
 import { MessageList } from './MessageList';
 import type { Message } from '../../types';
 
@@ -8,6 +8,20 @@ interface PromptPanelProps {
   isLoading: boolean;
   onSubmit: (prompt: string) => void;
 }
+
+/**
+ * Example prompts to help users get started
+ */
+const examplePrompts = [
+  'Design an e-commerce system with users, products, orders, and shopping cart',
+  'Create a library management system with books, members, and loans',
+  'Model a hospital system with patients, doctors, and appointments',
+  'Design a school system with students, teachers, and courses',
+  'Create a restaurant ordering system with menu items and orders',
+  'Model a banking system with accounts and transactions',
+  'Design a blog platform with posts, comments, and categories',
+  'Create a vehicle hierarchy with cars and motorcycles',
+];
 
 /**
  * PromptPanel component provides a chat interface for user prompts.
@@ -22,6 +36,7 @@ interface PromptPanelProps {
  */
 export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps) {
   const [inputValue, setInputValue] = useState('');
+  const [showExamples, setShowExamples] = useState(false);
 
   const handleSubmit = useCallback(() => {
     const trimmedValue = inputValue.trim();
@@ -40,6 +55,11 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
     },
     [handleSubmit]
   );
+
+  const handleExampleClick = useCallback((example: string) => {
+    setInputValue(example);
+    setShowExamples(false);
+  }, []);
 
   return (
     <aside
@@ -60,6 +80,34 @@ export function PromptPanel({ messages, isLoading, onSubmit }: PromptPanelProps)
       {/* Input Area */}
       <div className="p-4 border-t border-gray-200">
         <div className="flex flex-col gap-2">
+          {/* Example Prompts Toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExamples(!showExamples)}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+              data-testid="examples-toggle"
+            >
+              <Lightbulb className="w-3 h-3" />
+              <span>{showExamples ? 'Hide examples' : 'Show example prompts'}</span>
+            </button>
+            
+            {/* Example Prompts Dropdown */}
+            {showExamples && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-10">
+                {examplePrompts.map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleExampleClick(example)}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0"
+                    data-testid={`example-prompt-${index}`}
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}

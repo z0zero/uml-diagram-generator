@@ -35,6 +35,7 @@ function App() {
   const addMessage = useDiagramStore((state) => state.addMessage);
   const setLoading = useDiagramStore((state) => state.setLoading);
   const updateDiagramFromUML = useDiagramStore((state) => state.updateDiagramFromUML);
+  const updateProjectName = useDiagramStore((state) => state.updateProjectName);
 
   // Initialize store on mount (load projects from localStorage)
   useEffect(() => {
@@ -42,10 +43,27 @@ function App() {
   }, []);
 
   /**
+   * Generates a project name from the prompt (first 30 chars, cleaned up)
+   */
+  const generateProjectName = useCallback((prompt: string): string => {
+    const cleaned = prompt.trim().replace(/\s+/g, ' ');
+    if (cleaned.length <= 30) {
+      return cleaned;
+    }
+    return cleaned.substring(0, 30).trim() + '...';
+  }, []);
+
+  /**
    * Handles prompt submission from PromptPanel.
    * Sends prompt to AI service and updates diagram with response.
    */
   const handlePromptSubmit = useCallback(async (prompt: string) => {
+    // If this is the first message and project is "Untitled Project", rename it
+    const currentProject = projects.find(p => p.id === currentProjectId);
+    if (messages.length === 0 && currentProject?.name === 'Untitled Project') {
+      updateProjectName(generateProjectName(prompt));
+    }
+
     // Add user message to conversation
     const userMessage: Message = {
       id: generateMessageId(),
@@ -85,7 +103,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [addMessage, setLoading, updateDiagramFromUML]);
+  }, [addMessage, setLoading, updateDiagramFromUML, messages.length, currentProjectId, projects, updateProjectName, generateProjectName]);
 
   return (
     <ReactFlowProvider>

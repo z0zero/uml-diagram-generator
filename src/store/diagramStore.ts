@@ -209,6 +209,22 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
       edges,
     });
   },
+
+  // Update project name
+  updateProjectName: (name: string) => {
+    const state = get();
+    const { currentProjectId, projects } = state;
+
+    if (!currentProjectId) {
+      return;
+    }
+
+    set({
+      projects: projects.map((p) =>
+        p.id === currentProjectId ? { ...p, name, updatedAt: new Date() } : p
+      ),
+    });
+  },
 }));
 
 /**
