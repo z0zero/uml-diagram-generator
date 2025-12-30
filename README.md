@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# UML Diagram Generator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React application that generates UML Class Diagrams from natural language prompts. Describe your system in plain English and get a visual UML diagram instantly.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Natural Language Input**: Describe your system and generate UML diagrams automatically
+- **Interactive Canvas**: Pan, zoom, and explore your diagrams using React Flow
+- **Project Management**: Create, save, load, and delete diagram projects
+- **Multiple Templates**: Built-in support for e-commerce, library, hospital, school, restaurant, banking, blog, and vehicle systems
+- **UML Notation**: Proper class diagrams with attributes, operations, and visibility markers
+- **Relationship Types**: Association, inheritance, composition, and aggregation with appropriate visual markers
+- **Auto Layout**: Automatic hierarchical layout using Dagre algorithm
+- **Conversation History**: Track your prompts and responses
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** with TypeScript
+- **Vite** for fast development and building
+- **React Flow** for diagram visualization
+- **Zustand** for state management
+- **Dagre** for automatic graph layout
+- **Tailwind CSS** for styling
+- **Lucide React** for icons
+- **Vitest + fast-check** for testing (including property-based tests)
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- [Bun](https://bun.sh/) (recommended) or Node.js 18+
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Install dependencies
+bun install
+
+# Start development server
+bun run dev
+
+# Run tests
+bun run test
+
+# Build for production
+bun run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Usage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Click **Create New** to start a new project
+2. Enter a description of your system in the prompt panel (e.g., "Design an e-commerce system with users, products, and orders")
+3. Click **Generate** to create the UML diagram
+4. Use the canvas controls to pan and zoom
+5. Click **Save** to persist your project to local storage
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project Structure
+
 ```
+src/
+├── components/
+│   ├── Canvas/          # React Flow canvas and custom nodes/edges
+│   ├── PromptPanel/     # Chat interface for prompts
+│   └── Sidebar/         # Project management
+├── services/
+│   ├── aiService.ts     # AI response simulation
+│   ├── umlParser.ts     # JSON to React Flow transformation
+│   └── layoutEngine.ts  # Dagre layout calculation
+├── store/
+│   └── diagramStore.ts  # Zustand state management
+├── types/
+│   └── index.ts         # TypeScript interfaces
+└── utils/
+    └── storage.ts       # LocalStorage utilities
+```
+
+## Example Prompts
+
+- "Design an e-commerce system with users, products, orders, and shopping cart"
+- "Create a library management system with books, members, and loans"
+- "Model a hospital system with patients, doctors, and appointments"
+- "Design a school system with students, teachers, and courses"
+
+## License
+
+MIT
